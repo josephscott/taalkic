@@ -12,3 +12,8 @@
 - Workerman, minimum version 5.2.0
 - Fastroute, minimum version 1.3.0
 - laminas-escaper, minimum version 2.18.0
+
+## Composer
+- Use a class map
+- Do not allow plugins
+- Enable as many optimizations as possible
