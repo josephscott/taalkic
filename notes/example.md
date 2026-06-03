@@ -35,6 +35,9 @@ $router->get( '/hello[/{name}]', __DIR__ . '/routes/hello.php' );
 $router->post( '/thing/post', __DIR__ '/routes/thing/post.php' );
 $router->put( '/thing/put', __DIR__ . '/routes/thing/put.php' );
 $router->delete( '/thing/delete', __DIR__ . '/routes/thing/delete.php' );
+$router->head( '/thing/head', __DIR__ . '/routes/thing/head.php' );
+$router->options( '/thing/options', __DIR__ . '/routes/thing/options.php' );
+$router->patch( '/thing/patch', __DIR__ . '/routes/thing/patch.php' );
 
 $router->http_404( __DIR__ . '/routes/404.php' );
 $router->http_405( __DIR__ . '/routes/405.php' );

@@ -19,7 +19,9 @@ The URL routing code supports all of the possible HTTP methods:
 
 ## HEAD requests
 
-HTTP HEAD requests should fall back to the GET route for that URL.
+HTTP HEAD requests should fall back to the GET route for that URL.  When that
+happens strip the body from the response to match the HTTP spec for
+responding to HEAD requests.
 
 ## Helper Functions
 
