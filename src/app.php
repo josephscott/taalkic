@@ -3,7 +3,12 @@ declare( strict_types = 1 );
 
 namespace Taalkic;
 
+use FastRoute\Dispatcher;
 use Laminas\Escaper\Escaper;
+use Workerman\Connection\TcpConnection;
+use Workerman\Protocols\Http\Request;
+use Workerman\Protocols\Http\Response;
+use Workerman\Worker;
 
 class App {
 	// Shared with the helper functions ( esc_*, template ) via App::charset
@@ -24,7 +29,7 @@ class App {
 
 	private int $port = 4200;
 
-	private object $router;
+	private Router $router;
 
 	/**
 	 * @param array<string, mixed> $config
@@ -52,6 +57,26 @@ class App {
 		// router and template_dir are required, so they are always present here.
 		$this->router = $config['router'];
 		self::$template_dir = $config['template_dir'];
+	}
+
+	// Start the server. Bind only to 127.0.0.1; in production taalkic runs
+	// behind a web server like Nginx, which handles TLS termination.
+	public function run(): void {
+		$worker = new Worker( 'http://127.0.0.1:' . $this->port );
+		$worker->count = $this->worker_count();
+
+		$dispatcher = $this->router->dispatcher();
+		$worker->onMessage = function( TcpConnection $connection, Request $request ) use ( $dispatcher ): void {
+			$connection->send( $this->handle( $dispatcher, $request ) );
+		};
+
+		Worker::runAll();
+	}
+
+	// Turn a single request into a response. Dispatch, route execution, and
+	// error handling are added in the following chunks.
+	private function handle( Dispatcher $dispatcher, Request $request ): Response {
+		return new Response();
 	}
 
 	// Shared escaper for the esc_* helpers, built once from App::$charset.
