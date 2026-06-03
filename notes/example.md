@@ -33,6 +33,7 @@ $router->get( '/go', __DIR__ . '/routes/go.php' );
 $router->get( '/hello[/{name}]', __DIR__ . '/routes/hello.php' );
 
 $router->http_404( __DIR__ . '/routes/404.php' );
+$router->http_405( __DIR__ . '/routes/405.php' );
 ```
 
 ## demo/routes/index.php
