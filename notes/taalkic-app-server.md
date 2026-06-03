@@ -7,7 +7,15 @@ Taalkic is a PHP app server built on top of the Workerman library.
 Routes are defined in the `url-routes.php` file.  Callbacks for URL routes
 are done via mapping to a single file.
 
-The URL routing code supports all of the possible HTTP methods.
+The URL routing code supports all of the possible HTTP methods:
+
+- HEAD
+- GET
+- POST
+- PUT
+- DELETE
+- OPTIONS
+- PATCH
 
 ## HEAD requests
 
