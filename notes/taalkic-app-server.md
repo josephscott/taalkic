@@ -93,6 +93,8 @@ possible values:
 - `half` ( string ): which counts the number of cores on the system and uses half of that as the number of workers - if that ends up being an odd number round down
 - `<INT>` ( int ): a specific number of workers to run
 
+The minimum number of workers is 2.
+
 ## The network
 
 Only bind to the 127.0.0.1 interface.  In production it is expected that
