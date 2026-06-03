@@ -13,6 +13,9 @@ When creating a new Taalkic\App the constructor supports the following args:
 - `router` ( object ) required: URL routes
 - `template_dir` ( string ) required: base path for templates
 
+If a required arg is not provided, exit with an error message and write the
+same message to the error log.
+
 ## URL Routing
 
 Routes are defined in the `url-routes.php` file.  Callbacks for URL routes
