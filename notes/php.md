@@ -42,6 +42,15 @@ if ( $other_condition ) {
 }
 ```
 
+Return values should be simple variables, they should not contain expressions.
+
+```php
+// Do this
+return $count;
+
+// DO NOT USE THIS STYLE
+return $count === 1;
+```
 
 ## Performance
 
