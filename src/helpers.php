@@ -22,3 +22,13 @@ function esc_css( string $value ): string {
 function esc_url( string $value ): string {
 	return App::escaper()->escapeUrl( $value );
 }
+
+/**
+ * Render a template file. The path is relative to App::$template_dir and the
+ * template does its own direct output. Only $data is provided to the template.
+ *
+ * @param array<string, mixed> $data
+ */
+function template( string $file_path, array $data = [] ): void {
+	App::render_template( $file_path, $data );
+}

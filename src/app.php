@@ -15,6 +15,10 @@ class App {
 	// esc_* helper functions via App::escaper().
 	private static ?Escaper $escaper = null;
 
+	// Set just before a template is included, so the included file's scope
+	// holds only $data and not the template path ( see render_template() ).
+	private static string $template_file = '';
+
 	private string|int $workers = 'half';
 	private int $port = 4200;
 	private object $router;
@@ -58,6 +62,21 @@ class App {
 		}
 
 		return self::$escaper;
+	}
+
+	// Render a template in an isolated scope where only $data is available.
+	// The path is held on a static property so it is not a local variable,
+	// and therefore not in scope, when the template is included.
+	/**
+	 * @param array<string, mixed> $data
+	 */
+	public static function render_template( string $file_path, array $data ): void {
+		self::$template_file = self::$template_dir . $file_path;
+
+		$render = static function ( array $data ): void {
+			include self::$template_file;
+		};
+		$render( $data );
 	}
 
 	// Resolve the configured 'workers' value into an actual worker count.
