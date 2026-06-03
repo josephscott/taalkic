@@ -30,6 +30,9 @@ A very minimal templating feature is available via a single function:
 
 - `template( file_path, data )`
 
+The `template()` helper calls a template PHP file, which will also do
+direct output, like route callbacks do.
+
 ## Route Callbacks
 
 The file for the route callback needs to be isolated from the rest of the
