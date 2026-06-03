@@ -9,6 +9,7 @@ class App {
 	// Shared with the helper functions ( esc_*, template ) via App::charset
 	// and App::template_dir, so they are static.
 	public static string $charset = 'utf-8';
+
 	public static string $template_dir = '';
 
 	// Created once, on first use, from the charset above and shared by the
@@ -20,7 +21,9 @@ class App {
 	private static string $template_file = '';
 
 	private string|int $workers = 'half';
+
 	private int $port = 4200;
+
 	private object $router;
 
 	/**
@@ -29,7 +32,7 @@ class App {
 	public function __construct( array $config ) {
 		$required = [ 'router', 'template_dir' ];
 		foreach ( $required as $key ) {
-			if ( ! isset( $config[ $key ] ) ) {
+			if ( ! isset( $config[$key] ) ) {
 				$this->fail( "Taalkic\\App: missing required config arg '{$key}'" );
 			}
 		}
@@ -46,13 +49,9 @@ class App {
 			self::$charset = $config['charset'];
 		}
 
-		if ( isset( $config['router'] ) ) {
-			$this->router = $config['router'];
-		}
-
-		if ( isset( $config['template_dir'] ) ) {
-			self::$template_dir = $config['template_dir'];
-		}
+		// router and template_dir are required, so they are always present here.
+		$this->router = $config['router'];
+		self::$template_dir = $config['template_dir'];
 	}
 
 	// Shared escaper for the esc_* helpers, built once from App::$charset.
@@ -73,7 +72,7 @@ class App {
 	public static function render_template( string $file_path, array $data ): void {
 		self::$template_file = self::$template_dir . $file_path;
 
-		$render = static function ( array $data ): void {
+		$render = static function( array $data ): void {
 			include self::$template_file;
 		};
 		$render( $data );

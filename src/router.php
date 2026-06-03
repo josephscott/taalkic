@@ -8,6 +8,7 @@ class Router {
 	private array $routes = [];
 
 	private string $error_404 = '';
+
 	private string $error_405 = '';
 
 	public function head( string $path, string $file ): void {
@@ -59,7 +60,7 @@ class Router {
 	// Build the FastRoute dispatcher from the declared routes. Routes are
 	// registered exactly as declared; HEAD fallback is handled by the App.
 	public function dispatcher(): \FastRoute\Dispatcher {
-		$build = function ( \FastRoute\RouteCollector $collector ): void {
+		$build = function( \FastRoute\RouteCollector $collector ): void {
 			foreach ( $this->routes as $route ) {
 				$collector->addRoute( $route['method'], $route['path'], $route['file'] );
 			}
