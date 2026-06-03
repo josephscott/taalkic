@@ -2,6 +2,17 @@
 
 Taalkic is a PHP app server built on top of the Workerman library.
 
+
+## App Constructor Args
+
+When creating a new Taalkic\App the constructor supports the following args:
+
+- `workers` ( string|int ) optional: default to the `half` value
+- `port` ( int ) optional: default to port 4200
+- `charset` ( string ) optional: defaul to `utf-8`
+- `router` ( object ) required: URL routes
+- `template_dir` ( string ) required: base path for templates
+
 ## URL Routing
 
 Routes are defined in the `url-routes.php` file.  Callbacks for URL routes
@@ -22,6 +33,10 @@ The URL routing code supports all of the possible HTTP methods:
 HTTP HEAD requests should fall back to the GET route for that URL.  When that
 happens strip the body from the response to match the HTTP spec for
 responding to HEAD requests.
+
+## Error Handlers
+
+If there are no 404 and 405 error handlers declared, return a plain error page.
 
 ## Helper Functions
 
@@ -72,7 +87,7 @@ Routes can mutate the Workerman Response object via `$here->response`.
 For the number of workers provided it the App constructor, there are two
 possible values:
 
-- `half` ( string ): which counts the number of cores on the system and uses half of that as the number of workers
+- `half` ( string ): which counts the number of cores on the system and uses half of that as the number of workers - if that ends up being an odd number round down
 - `<INT>` ( int ): a specific number of workers to run
 
 ## The network
