@@ -4,6 +4,12 @@
 Avoid using exceptions when ever possible.  Prefer return values, or in the
 case of object tracking the error condition internally.
 
+Write code in a style so that it is easy for a human to tell what the code is
+doing at a glance.
+
+As a general rule, simple code is better than complex or clever code.  Keeping
+code simple also helps it be more understandable and reliable.
+
 ## Tooling
 - Tests: Pest, minimum version 4.7.0
 - Static Analysis: PHPStan, minimum version 2.2.0
