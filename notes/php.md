@@ -8,6 +8,7 @@
 - Code Style: php-cs-fixer, minimum version 3.95.2
 	- Config from https://github.com/josephscott/phpcsfixer-config 
 		- composer package: josephscott/phpcsfixer-config
+		- minimum version 0.0.6
 
 ## Libraries
 - Workerman, minimum version 5.2.0
