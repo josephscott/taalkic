@@ -1,0 +1,40 @@
+# Taalkic App Server
+
+Taalkic is a PHP app server built on top of the Workerman library.
+
+## URL Routing
+
+Routes are defined in the `url-routes.php` file.  Callbacks for URL routes
+are done via mapping to a single file.
+
+## HEAD requests
+
+HTTP HEAD requests should fall back to the GET route for that URL.
+
+## Helper Functions
+
+For the convenience of developers there are a number of helper functions
+that Taalkic provides for routes and templates.
+
+To make escaping output easier an instance of laminas-escaper is created
+using the charset passed into the App constructor.  Those functions are:
+
+- `esc_html( string )`
+- `esc_html_attr( string )`
+- `esc_js( string ) `
+- `esc_css( string )`
+- `esc_url( string )`
+
+A very minimal templating feature is available via a single function:
+
+- `template( file_path, data )`
+
+## Route Callbacks
+
+The file for the route callback needs to be isolated from the rest of the
+environment.  A route can interact with the details and data of the request
+via the `$here` object.  The `$here` object provides the following:
+
+- `$here->request` ( object ) which is the `$request` from Workerman
+- `$here->response` ( object ) which is the `$response` from Workerman
+- `$here->params` ( array ) which contains the URL placeholders from FastRoute
