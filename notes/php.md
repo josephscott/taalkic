@@ -17,3 +17,8 @@
 - Use a class map
 - Do not allow plugins
 - Enable as many optimizations as possible
+
+## Performance
+
+The goal is to have Taalkic provide the best possible performance while
+maintaining the designated developer experience.
