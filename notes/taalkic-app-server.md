@@ -27,8 +27,8 @@ For the convenience of developers there are a number of helper functions
 that Taalkic provides for routes and templates.  These are global functions
 that are loaded via the Composer `files` autoload feature.
 
-To make escaping output easier an instance of laminas-escaper is created
-using the charset passed into the App constructor.  Those functions are:
+To make escaping output easier an instance of laminas-escaper that is created
+once using the charset passed into the App constructor.  Those functions are:
 
 - `esc_html( string )`
 - `esc_html_attr( string )`
