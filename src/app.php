@@ -73,9 +73,41 @@ class App {
 		Worker::runAll();
 	}
 
-	// Turn a single request into a response. Dispatch, route execution, and
-	// error handling are added in the following chunks.
+	// Turn a single request into a response.
 	private function handle( Dispatcher $dispatcher, Request $request ): Response {
+		$method = $request->method();
+		$path = $request->path();
+		$route_info = $dispatcher->dispatch( $method, $path );
+
+		// A HEAD request with no explicit HEAD route falls back to the GET route.
+		if ( $method === 'HEAD' && $route_info[0] !== Dispatcher::FOUND ) {
+			$route_info = $dispatcher->dispatch( 'GET', $path );
+		}
+
+		$response = $this->route_response( $route_info );
+
+		// A HEAD response carries no body, per the HTTP spec.
+		if ( $method === 'HEAD' ) {
+			$response->withBody( '' );
+		}
+
+		return $response;
+	}
+
+	// Map a FastRoute dispatch result to a response.
+	/**
+	 * @param array<int, mixed> $route_info
+	 */
+	private function route_response( array $route_info ): Response {
+		if ( $route_info[0] === Dispatcher::NOT_FOUND ) {
+			return new Response( 404 );
+		}
+
+		if ( $route_info[0] === Dispatcher::METHOD_NOT_ALLOWED ) {
+			return new Response( 405 );
+		}
+
+		// FOUND: route execution is added in the next chunk.
 		return new Response();
 	}
 
