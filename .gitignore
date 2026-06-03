@@ -1,0 +1,18 @@
+# Composer dependencies
+/vendor/
+
+# Tooling caches
+/.php-cs-fixer.cache
+/.phpstan.cache/
+/.phpunit.cache/
+/.phpunit.result.cache
+
+# Test coverage output
+/coverage/
+
+# Workerman runtime artifacts (logs and pid files from the daemon)
+workerman.log
+*.pid
+
+# macOS
+.DS_Store
