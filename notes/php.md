@@ -10,6 +10,9 @@ doing at a glance.
 As a general rule, simple code is better than complex or clever code.  Keeping
 code simple also helps it be more understandable and reliable.
 
+Avoid ternary statements.  In general a simple if/else is the way to go for
+conditional checks.
+
 ## Tooling
 - Tests: Pest, minimum version 4.7.0
 - Static Analysis: PHPStan, minimum version 2.2.0
