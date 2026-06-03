@@ -104,11 +104,11 @@ class App {
 	 */
 	private function route_response( array $route_info, Request $request ): Response {
 		if ( $route_info[0] === Dispatcher::NOT_FOUND ) {
-			return new Response( 404 );
+			return $this->error_response( 404, $this->router->handler_404(), $request );
 		}
 
 		if ( $route_info[0] === Dispatcher::METHOD_NOT_ALLOWED ) {
-			return new Response( 405 );
+			return $this->error_response( 405, $this->router->handler_405(), $request );
 		}
 
 		// FOUND: $route_info[1] is the route file, $route_info[2] its params.
@@ -126,7 +126,8 @@ class App {
 	 * @param array<string, string> $params
 	 */
 	private function run_route( string $file, array $params, Request $request ): Response {
-		$response = new Response();
+		// Routes start at 200 by default and can change it via $here->response.
+		$response = new Response( 200 );
 		$here = new Here( $request, $response, $params );
 
 		self::$route_file = $file;
@@ -141,6 +142,45 @@ class App {
 		$response->withBody( $body );
 
 		return $response;
+	}
+
+	// Build an error response. The registered handler file is run like a route;
+	// when no handler is declared, a plain error page is returned instead.
+	private function error_response( int $status, string $handler_file, Request $request ): Response {
+		if ( $handler_file === '' ) {
+			return $this->plain_error( $status );
+		}
+
+		// Run the handler like a route, then force the error status so it is
+		// always correct, even if the handler file does not set it itself.
+		$response = $this->run_route( $handler_file, [], $request );
+		$response->withStatus( $status );
+
+		return $response;
+	}
+
+	// A minimal text error page, used when no error handler is declared.
+	private function plain_error( int $status ): Response {
+		$response = new Response( $status );
+		$response->withHeader( 'Content-Type', 'text/plain' );
+		$response->withBody( $status . ' ' . $this->reason_phrase( $status ) );
+
+		return $response;
+	}
+
+	// The HTTP reason phrase for the error statuses taalkic returns itself.
+	private function reason_phrase( int $status ): string {
+		$phrases = [
+			404 => 'Not Found',
+			405 => 'Method Not Allowed',
+		];
+
+		$phrase = 'Error';
+		if ( isset( $phrases[$status] ) ) {
+			$phrase = $phrases[$status];
+		}
+
+		return $phrase;
 	}
 
 	// Shared escaper for the esc_* helpers, built once from App::$charset.
