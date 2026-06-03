@@ -3,11 +3,17 @@ declare( strict_types = 1 );
 
 namespace Taalkic;
 
+use Laminas\Escaper\Escaper;
+
 class App {
 	// Shared with the helper functions ( esc_*, template ) via App::charset
 	// and App::template_dir, so they are static.
 	public static string $charset = 'utf-8';
 	public static string $template_dir = '';
+
+	// Created once, on first use, from the charset above and shared by the
+	// esc_* helper functions via App::escaper().
+	private static ?Escaper $escaper = null;
 
 	private string|int $workers = 'half';
 	private int $port = 4200;
@@ -43,6 +49,15 @@ class App {
 		if ( isset( $config['template_dir'] ) ) {
 			self::$template_dir = $config['template_dir'];
 		}
+	}
+
+	// Shared escaper for the esc_* helpers, built once from App::$charset.
+	public static function escaper(): Escaper {
+		if ( self::$escaper === null ) {
+			self::$escaper = new Escaper( self::$charset );
+		}
+
+		return self::$escaper;
 	}
 
 	// Resolve the configured 'workers' value into an actual worker count.
