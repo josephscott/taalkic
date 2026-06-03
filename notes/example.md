@@ -14,6 +14,8 @@ $router = new Taalkic\Router();
 require __DIR__ . '/url-routes.php';
 
 $app = new Taalkic\App( [
+	'workers' => 'half',
+	'port' => 4200,
 	'router' => $router,
 	'charset' => 'utf-8',
 	'template_dir' => __DIR__ . '/templates/',

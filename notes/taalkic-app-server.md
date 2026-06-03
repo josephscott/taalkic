@@ -43,3 +43,11 @@ A route callback is much like a traditional PHP file, so you will need to
 capture the output.  You will also need to make sure to apply the
 `$here->response` details, as the route can use that to apply changes to the
 `$response` object for Workerman.
+
+## Number of workers
+
+For the number of workers provided it the App constructor, there are two
+possible values:
+
+- `half` ( string ): which counts the number of cores on the system and uses half of that as the number of workers
+- `<INT>` ( int ): a specific number of workers to run
