@@ -26,6 +26,9 @@ using the charset passed into the App constructor.  Those functions are:
 - `esc_css( string )`
 - `esc_url( string )`
 
+The App object will keep the character set string in `Taalkic\App::charset`
+so that the laminas-escaper constructor can pull it from there.
+
 A very minimal templating feature is available via a single function:
 
 - `template( file_path, data )`
