@@ -44,7 +44,8 @@ A very minimal templating feature is available via a single function:
 - `template( file_path, data )`
 
 The `template()` helper calls a template PHP file, which will also do
-direct output, like route callbacks do.
+direct output, like route callbacks do.  The `file_path` is always relative
+to the Taalkic\App::template_dir base path.
 
 ## Route Callbacks
 
@@ -61,6 +62,8 @@ A route callback is much like a traditional PHP file, so you will need to
 capture the output.  You will also need to make sure to apply the
 `$here->response` details, as the route can use that to apply changes to the
 `$response` object for Workerman.
+
+Routes can mutate the Workerman Response object via `$here->response`.
 
 ## Number of workers
 
