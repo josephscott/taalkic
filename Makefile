@@ -73,7 +73,7 @@ style: ## Fix any style issues
 lint: ## Check if the code is valid
 	@echo
 	@echo "--> Lint"
-	find src tests bin routes templates -name "*.php" -exec php -l {} \;
+	find src tests demo -name "*.php" -exec php -l {} \;
 	@echo
 
 .PHONY: analyze
