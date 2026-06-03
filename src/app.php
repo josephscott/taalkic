@@ -45,6 +45,42 @@ class App {
 		}
 	}
 
+	// Resolve the configured 'workers' value into an actual worker count.
+	// A specific integer is used as-is; 'half' uses half of the CPU cores.
+	private function worker_count(): int {
+		$count = 2;
+		if ( is_int( $this->workers ) ) {
+			$count = $this->workers;
+		}
+
+		// 'half': half of the available cores, rounded down.
+		if ( $this->workers === 'half' ) {
+			$count = intdiv( $this->cpu_cores(), 2 );
+		}
+
+		// The minimum number of workers is 2.
+		if ( $count < 2 ) {
+			$count = 2;
+		}
+
+		return $count;
+	}
+
+	// Count the CPU cores on the host. Only macOS and Linux are supported.
+	private function cpu_cores(): int {
+		$command = 'nproc'; // Linux
+		if ( PHP_OS_FAMILY === 'Darwin' ) {
+			$command = 'sysctl -n hw.ncpu';
+		}
+
+		$cores = (int) trim( (string) shell_exec( $command ) );
+		if ( $cores < 1 ) {
+			$cores = 1;
+		}
+
+		return $cores;
+	}
+
 	// Write the message to the error log, then exit with that same message.
 	private function fail( string $message ): never {
 		error_log( $message );
