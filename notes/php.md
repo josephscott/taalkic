@@ -1,6 +1,7 @@
 # PHP
 - Minimum PHP version: 8.4
 
+Avoid using exceptions when ever possible.
 
 ## Tooling
 - Tests: Pest, minimum version 4.7.0
