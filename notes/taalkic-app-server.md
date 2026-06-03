@@ -38,3 +38,8 @@ via the `$here` object.  The `$here` object provides the following:
 - `$here->request` ( object ) which is the `$request` from Workerman
 - `$here->response` ( object ) which is the `$response` from Workerman
 - `$here->params` ( array ) which contains the URL placeholders from FastRoute
+
+A route callback is much like a traditional PHP file, so you will need to
+capture the output.  You will also need to make sure to apply the
+`$here->response` details, as the route can use that to apply changes to the
+`$response` object for Workerman.
