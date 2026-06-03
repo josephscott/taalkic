@@ -53,7 +53,7 @@ $here->response->withStatus( 302 );
 $here->response->withHeaders( [ 'Location' => '/' ] );
 ```
 
-## routes/hello.php
+## demo/routes/hello.php
 ```
 <?php
 declare( strict_types = 1 );
@@ -68,3 +68,16 @@ Hello, <?= esc_html( $name ); ?>
 
 <?php
 template( 'footer.php' );
+```
+
+## demo/templates/header.php
+```
+<?php
+declare( strict_types = 1 );
+/** @var $data */
+
+<html>
+<head>
+<title><?= esc_html( $data['title'] ?? 'The Title' ) ?></title>
+</head>
+```
