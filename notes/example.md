@@ -32,6 +32,10 @@ $router->get( '/', __DIR__ . '/routes/index.php' );
 $router->get( '/go', __DIR__ . '/routes/go.php' );
 $router->get( '/hello[/{name}]', __DIR__ . '/routes/hello.php' );
 
+$router->post( '/thing/post', __DIR__ '/routes/thing/post.php' );
+$router->put( '/thing/put', __DIR__ . '/routes/thing/put.php' );
+$router->delete( '/thing/delete', __DIR__ . '/routes/thing/delete.php' );
+
 $router->http_404( __DIR__ . '/routes/404.php' );
 $router->http_405( __DIR__ . '/routes/405.php' );
 ```
