@@ -3,7 +3,7 @@
 Here are coding examples that users of the taalkic library would write their
 code.
 
-## server.php
+## demo/server.php
 ```php
 <?php
 declare( strict_types = 1 );
@@ -14,13 +14,14 @@ $router = new Taalkic\Router();
 require __DIR__ . '/url-routes.php';
 
 $app = new Taalkic\App( [
+	'router' => $router,
 	'charset' => 'utf-8',
 	'template_dir' => __DIR__ . '/templates/',
 ] );
 $app->run();
 ```
 
-## url-routes.php
+## demo/url-routes.php
 ```php
 <?php
 declare( strict_types = 1 );
@@ -30,7 +31,7 @@ $router->get( '/go', __DIR__ . '/routes/go.php' );
 $router->get( '/hello[/{name}]', __DIR__ . '/routes/hello.php' );
 ```
 
-## routes/index.php
+## demo/routes/index.php
 ```
 <?php
 declare( strict_types = 1 );
@@ -42,7 +43,7 @@ echo "GET variables:\n";
 print_r( $here->request->get() );
 ```
 
-## routes/go.php
+## demo/routes/go.php
 ```
 <?php
 declare( strict_types = 1 );

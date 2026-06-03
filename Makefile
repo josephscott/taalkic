@@ -32,28 +32,28 @@ classmap: ## Update composer classmap
 start: ## Start the server as a background service ( production, no watching )
 	@echo
 	@echo "--> Server: start ( daemon )"
-	php bin/server.php start -d
+	php demo/server.php start -d
 	@echo
 
 .PHONY: stop
 stop: ## Stop the background service
 	@echo
 	@echo "--> Server: stop"
-	php bin/server.php stop
+	php demo/server.php stop
 	@echo
 
 .PHONY: restart
 restart: ## Restart the background service
 	@echo
 	@echo "--> Server: restart ( daemon )"
-	php bin/server.php restart -d
+	php demo/server.php restart -d
 	@echo
 
 .PHONY: status
 status: ## Show the server status
 	@echo
 	@echo "--> Server: status"
-	php bin/server.php status
+	php demo/server.php status
 	@echo
 
 # ### #
