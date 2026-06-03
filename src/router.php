@@ -56,6 +56,18 @@ class Router {
 		return $this->error_405;
 	}
 
+	// Build the FastRoute dispatcher from the declared routes. Routes are
+	// registered exactly as declared; HEAD fallback is handled by the App.
+	public function dispatcher(): \FastRoute\Dispatcher {
+		$build = function ( \FastRoute\RouteCollector $collector ): void {
+			foreach ( $this->routes as $route ) {
+				$collector->addRoute( $route['method'], $route['path'], $route['file'] );
+			}
+		};
+
+		return \FastRoute\simpleDispatcher( $build );
+	}
+
 	// Store a single route. Callbacks map to a single file on disk.
 	private function add( string $method, string $path, string $file ): void {
 		$this->routes[] = [
