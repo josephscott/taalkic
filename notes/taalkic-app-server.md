@@ -57,4 +57,5 @@ possible values:
 ## The network
 
 Only bind to the 127.0.0.1 interface.  In production it is expected that
-taalkic will run behind a traditional web server like Nginx.
+taalkic will run behind a traditional web server like Nginx, which would also
+take care of TLS termination.
