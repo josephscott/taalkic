@@ -1,7 +1,8 @@
 # PHP
 - Minimum PHP version: 8.4
 
-Avoid using exceptions when ever possible.
+Avoid using exceptions when ever possible.  Prefer return values, or in the
+case of object tracking the error condition internally.
 
 ## Tooling
 - Tests: Pest, minimum version 4.7.0
