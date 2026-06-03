@@ -7,6 +7,7 @@
 - Static Analysis: PHPStan, minimum version 2.2.0
 - Code Style: php-cs-fixer, minimum version 3.95.2
 	- Config from https://github.com/josephscott/phpcsfixer-config 
+		- composer package: josephscott/phpcsfixer-config
 
 ## Libraries
 - Workerman, minimum version 5.2.0
