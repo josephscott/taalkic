@@ -25,6 +25,10 @@ class App {
 	// holds only $data and not the template path ( see render_template() ).
 	private static string $template_file = '';
 
+	// Set just before a route file is run, so the route's scope holds only
+	// $here and not the route path ( see run_route() ).
+	private static string $route_file = '';
+
 	private string|int $workers = 'half';
 
 	private int $port = 4200;
@@ -84,7 +88,7 @@ class App {
 			$route_info = $dispatcher->dispatch( 'GET', $path );
 		}
 
-		$response = $this->route_response( $route_info );
+		$response = $this->route_response( $route_info, $request );
 
 		// A HEAD response carries no body, per the HTTP spec.
 		if ( $method === 'HEAD' ) {
@@ -98,7 +102,7 @@ class App {
 	/**
 	 * @param array<int, mixed> $route_info
 	 */
-	private function route_response( array $route_info ): Response {
+	private function route_response( array $route_info, Request $request ): Response {
 		if ( $route_info[0] === Dispatcher::NOT_FOUND ) {
 			return new Response( 404 );
 		}
@@ -107,8 +111,36 @@ class App {
 			return new Response( 405 );
 		}
 
-		// FOUND: route execution is added in the next chunk.
-		return new Response();
+		// FOUND: $route_info[1] is the route file, $route_info[2] its params.
+		$file = $route_info[1];
+		$params = $route_info[2];
+		return $this->run_route( $file, $params, $request );
+	}
+
+	// Run a route file in an isolated scope where only $here is available, and
+	// use its captured output as the response body. The route can also mutate
+	// the response via $here->response. The path is held on a static property
+	// so it is not a local variable, and therefore not in scope, when the route
+	// file is included.
+	/**
+	 * @param array<string, string> $params
+	 */
+	private function run_route( string $file, array $params, Request $request ): Response {
+		$response = new Response();
+		$here = new Here( $request, $response, $params );
+
+		self::$route_file = $file;
+		$run = static function( Here $here ): void {
+			include self::$route_file;
+		};
+
+		ob_start();
+		$run( $here );
+		$body = (string) ob_get_clean();
+
+		$response->withBody( $body );
+
+		return $response;
 	}
 
 	// Shared escaper for the esc_* helpers, built once from App::$charset.
