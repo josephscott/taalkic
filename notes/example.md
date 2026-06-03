@@ -60,10 +60,10 @@ declare( strict_types = 1 );
 
 $name = $here->params['name'] ?? 'world';
 
-$here->template( 'header.php', [ 'title' => 'Hello' ] );
+template( 'header.php', [ 'title' => 'Hello' ] );
 ?>
 
 Hello, <?= esc_html( $name ); ?>
 
 <?php
-$here->template( 'footer.php' );
+template( 'footer.php' );
