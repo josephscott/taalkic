@@ -53,3 +53,8 @@ possible values:
 
 - `half` ( string ): which counts the number of cores on the system and uses half of that as the number of workers
 - `<INT>` ( int ): a specific number of workers to run
+
+## The network
+
+Only bind to the 127.0.0.1 interface.  In production it is expected that
+taalkic will run behind a traditional web server like Nginx.
