@@ -14,7 +14,8 @@ HTTP HEAD requests should fall back to the GET route for that URL.
 ## Helper Functions
 
 For the convenience of developers there are a number of helper functions
-that Taalkic provides for routes and templates.
+that Taalkic provides for routes and templates.  These are global functions
+that are loaded via the Composer `files` autoload feature.
 
 To make escaping output easier an instance of laminas-escaper is created
 using the charset passed into the App constructor.  Those functions are:
@@ -32,7 +33,8 @@ A very minimal templating feature is available via a single function:
 ## Route Callbacks
 
 The file for the route callback needs to be isolated from the rest of the
-environment.  A route can interact with the details and data of the request
+environment.  Meaning the only variable in scope when a route runs is the
+`$here` variable.  A route can interact with the details and data of the request
 via the `$here` object.  The `$here` object provides the following:
 
 - `$here->request` ( object ) which is the `$request` from Workerman
