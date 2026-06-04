@@ -57,6 +57,15 @@ class Router {
 		return $this->error_405;
 	}
 
+	// The declared routes, so the App can check that their callback files
+	// exist when the routes are loaded.
+	/**
+	 * @return array<int, array{method: string, path: string, file: string}>
+	 */
+	public function routes(): array {
+		return $this->routes;
+	}
+
 	// Build the FastRoute dispatcher from the declared routes. Routes are
 	// registered exactly as declared; HEAD fallback is handled by the App.
 	public function dispatcher(): \FastRoute\Dispatcher {

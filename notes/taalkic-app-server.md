@@ -43,9 +43,25 @@ HTTP HEAD requests should fall back to the GET route for that URL.  When that
 happens strip the body from the response to match the HTTP spec for
 responding to HEAD requests.
 
+## Missing callback files
+
+A route can be declared for a callback file that does not exist ( a typo, or a
+route added before its file ).  This is a server-side misconfiguration, so a
+request to that route returns a plain `500 Internal Server Error` rather than
+the blank `200` an empty `include()` would produce.  When the routes are loaded
+( on worker start, so also on every reload ) any declared route or error
+handler file that does not exist is written to the error log, so the problem
+shows up right away instead of only on the first matching request.
+
+These messages go to the PHP error log via `error_log()`.  In daemon mode set
+the `error_log` ini directive to a file, otherwise the messages are written to
+stderr, which the daemon discards.
+
 ## Error Handlers
 
 If there are no 404 and 405 error handlers declared, return a plain error page.
+The same applies if a handler is declared but its file is missing: the request
+still returns that handler's status ( e.g. 404 ) using the plain error page.
 
 ## Helper Functions
 

@@ -125,7 +125,31 @@ class App {
 		};
 		$load( $router );
 
+		$this->warn_missing_files( $router );
+
 		return $router;
+	}
+
+	// Log any declared route or error-handler file that does not exist. This
+	// runs when the routes are loaded ( on worker start, so also on reload ),
+	// surfacing a typo right away instead of only on the first matching
+	// request. It only warns; one bad path should not stop the server.
+	private function warn_missing_files( Router $router ): void {
+		foreach ( $router->routes() as $route ) {
+			if ( ! is_file( $route['file'] ) ) {
+				error_log( "Taalkic\\App: route callback file not found for {$route['method']} {$route['path']}: {$route['file']}" );
+			}
+		}
+
+		$handlers = [
+			404 => $router->handler_404(),
+			405 => $router->handler_405(),
+		];
+		foreach ( $handlers as $status => $file ) {
+			if ( $file !== '' && ! is_file( $file ) ) {
+				error_log( "Taalkic\\App: {$status} handler file not found: {$file}" );
+			}
+		}
 	}
 
 	// Turn a single request into a response.
@@ -177,6 +201,14 @@ class App {
 	 * @param array<string, string> $params
 	 */
 	private function run_route( string $file, array $params, Request $request ): Response {
+		// A route can be declared for a callback file that does not exist. That
+		// is a server-side misconfiguration, so return a 500 rather than the
+		// blank 200 an empty include() would otherwise produce.
+		if ( ! is_file( $file ) ) {
+			error_log( "Taalkic\\App: route callback file not found: {$file}" );
+			return $this->plain_error( 500 );
+		}
+
 		// Routes start at 200 by default and can change it via $here->response.
 		$response = new Response( 200 );
 		$here = new Here( $request, $response, $params );
@@ -198,7 +230,10 @@ class App {
 	// Build an error response. The registered handler file is run like a route;
 	// when no handler is declared, a plain error page is returned instead.
 	private function error_response( int $status, string $handler_file, Request $request ): Response {
-		if ( $handler_file === '' ) {
+		// Fall back to the plain error page when no handler is declared, or when
+		// one is declared but its file is missing, so a missing handler still
+		// returns its own status ( e.g. 404 ) rather than a 500.
+		if ( ! is_file( $handler_file ) ) {
 			return $this->plain_error( $status );
 		}
 
@@ -224,6 +259,7 @@ class App {
 		$phrases = [
 			404 => 'Not Found',
 			405 => 'Method Not Allowed',
+			500 => 'Internal Server Error',
 		];
 
 		$phrase = 'Error';
