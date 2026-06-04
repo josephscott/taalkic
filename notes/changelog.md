@@ -3,7 +3,7 @@
 There is a changelog kept in the CHANGELOG.md file in the root of this repo.
 
 ## Format
-- Each entry should be a short, descriptive single line
+- Each entry should be a short, descriptive single line, ideally less than 100 characters
 - Dates for each release are YYYY-MM-DD
 - The `dev` section indicates changes that have not been included in a release yet
 
