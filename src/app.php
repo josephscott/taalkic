@@ -29,7 +29,9 @@ class App {
 	// $here and not the route path ( see run_route() ).
 	private static string $route_file = '';
 
-	private string|int $workers = 'half';
+	// The resolved worker count, computed from the 'workers' config in the
+	// constructor ( see worker_count() ).
+	private int $workers = 2;
 
 	private int $port = 4200;
 
@@ -46,9 +48,11 @@ class App {
 			}
 		}
 
+		$workers = 'half'; // default
 		if ( isset( $config['workers'] ) ) {
-			$this->workers = $config['workers'];
+			$workers = $config['workers'];
 		}
+		$this->workers = $this->worker_count( $workers );
 
 		if ( isset( $config['port'] ) ) {
 			$this->port = $config['port'];
@@ -67,7 +71,7 @@ class App {
 	// behind a web server like Nginx, which handles TLS termination.
 	public function run(): void {
 		$worker = new Worker( 'http://127.0.0.1:' . $this->port );
-		$worker->count = $this->worker_count();
+		$worker->count = $this->workers;
 
 		$dispatcher = $this->router->dispatcher();
 		$worker->onMessage = function( TcpConnection $connection, Request $request ) use ( $dispatcher ): void {
@@ -209,14 +213,14 @@ class App {
 
 	// Resolve the configured 'workers' value into an actual worker count.
 	// A specific integer is used as-is; 'half' uses half of the CPU cores.
-	private function worker_count(): int {
+	private function worker_count( string|int $workers ): int {
 		$count = 2;
-		if ( is_int( $this->workers ) ) {
-			$count = $this->workers;
+		if ( is_int( $workers ) ) {
+			$count = $workers;
 		}
 
 		// 'half': half of the available cores, rounded down.
-		if ( $this->workers === 'half' ) {
+		if ( $workers === 'half' ) {
 			$count = intdiv( $this->cpu_cores(), 2 );
 		}
 
