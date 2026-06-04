@@ -29,19 +29,25 @@ class App {
 	// $here and not the route path ( see run_route() ).
 	private static string $route_file = '';
 
+	// Set just before the routes file is loaded, so its scope holds only
+	// $router and not the routes path ( see load_router() ).
+	private static string $routes_file = '';
+
 	// The resolved worker count, computed from the 'workers' config in the
 	// constructor ( see worker_count() ).
 	private int $workers = 2;
 
 	private int $port = 4200;
 
-	private Router $router;
+	// Path to the file that registers the URL routes. It is loaded inside each
+	// worker ( see run() ) so a reload picks up changes to it.
+	private string $routes_path = '';
 
 	/**
 	 * @param array<string, mixed> $config
 	 */
 	public function __construct( array $config ) {
-		$required = [ 'router', 'template_dir' ];
+		$required = [ 'routes', 'template_dir' ];
 		foreach ( $required as $key ) {
 			if ( ! isset( $config[$key] ) ) {
 				$this->fail( "Taalkic\\App: missing required config arg '{$key}'" );
@@ -62,8 +68,8 @@ class App {
 			self::$charset = $config['charset'];
 		}
 
-		// router and template_dir are required, so they are always present here.
-		$this->router = $config['router'];
+		// routes and template_dir are required, so they are always present here.
+		$this->routes_path = $config['routes'];
 		self::$template_dir = $config['template_dir'];
 	}
 
@@ -73,16 +79,57 @@ class App {
 		$worker = new Worker( 'http://127.0.0.1:' . $this->port );
 		$worker->count = $this->workers;
 
-		$dispatcher = $this->router->dispatcher();
-		$worker->onMessage = function( TcpConnection $connection, Request $request ) use ( $dispatcher ): void {
-			$connection->send( $this->handle( $dispatcher, $request ) );
+		// Load the routes inside the worker, not the master. A reload re-forks
+		// the workers and re-runs onWorkerStart, so changes to the routes file,
+		// the route callbacks, and the templates are all picked up. The master
+		// is never re-executed, so anything built before runAll() would be
+		// frozen for the life of the server.
+		$worker->onWorkerStart = function( Worker $worker ): void {
+			$router = $this->load_router();
+			$dispatcher = $router->dispatcher();
+
+			$worker->onMessage = function( TcpConnection $connection, Request $request ) use ( $router, $dispatcher ): void {
+				$connection->send( $this->handle( $dispatcher, $router, $request ) );
+			};
+		};
+
+		// A graceful reload waits for every connection on a worker to close
+		// before the worker exits, and it does not close idle ones itself. An
+		// idle keep-alive connection ( a browser, or Nginx's upstream pool )
+		// would then pin the worker open until the keep-alive timeout, stalling
+		// the whole reload. Close idle connections here so the worker exits
+		// right away. A connection that is part way through receiving a request
+		// is left to finish, and close() flushes any buffered response before
+		// the connection is closed, so no request is dropped.
+		$worker->onWorkerStop = function( Worker $worker ): void {
+			foreach ( $worker->connections as $connection ) {
+				if ( $connection->getRecvBufferQueueSize() === 0 ) {
+					$connection->close();
+				}
+			}
 		};
 
 		Worker::runAll();
 	}
 
+	// Build a fresh router by loading the routes file in an isolated scope
+	// where only $router is available. The path is held on a static property
+	// so it is not a local variable, and therefore not in scope, when the
+	// routes file is included.
+	private function load_router(): Router {
+		$router = new Router();
+
+		self::$routes_file = $this->routes_path;
+		$load = static function( Router $router ): void {
+			include self::$routes_file;
+		};
+		$load( $router );
+
+		return $router;
+	}
+
 	// Turn a single request into a response.
-	private function handle( Dispatcher $dispatcher, Request $request ): Response {
+	private function handle( Dispatcher $dispatcher, Router $router, Request $request ): Response {
 		$method = $request->method();
 		$path = $request->path();
 		$route_info = $dispatcher->dispatch( $method, $path );
@@ -92,7 +139,7 @@ class App {
 			$route_info = $dispatcher->dispatch( 'GET', $path );
 		}
 
-		$response = $this->route_response( $route_info, $request );
+		$response = $this->route_response( $route_info, $router, $request );
 
 		// A HEAD response carries no body, per the HTTP spec.
 		if ( $method === 'HEAD' ) {
@@ -106,13 +153,13 @@ class App {
 	/**
 	 * @param array<int, mixed> $route_info
 	 */
-	private function route_response( array $route_info, Request $request ): Response {
+	private function route_response( array $route_info, Router $router, Request $request ): Response {
 		if ( $route_info[0] === Dispatcher::NOT_FOUND ) {
-			return $this->error_response( 404, $this->router->handler_404(), $request );
+			return $this->error_response( 404, $router->handler_404(), $request );
 		}
 
 		if ( $route_info[0] === Dispatcher::METHOD_NOT_ALLOWED ) {
-			return $this->error_response( 405, $this->router->handler_405(), $request );
+			return $this->error_response( 405, $router->handler_405(), $request );
 		}
 
 		// FOUND: $route_info[1] is the route file, $route_info[2] its params.

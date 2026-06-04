@@ -10,7 +10,7 @@ When creating a new Taalkic\App the constructor supports the following args:
 - `workers` ( string|int ) optional: default to the `half` value
 - `port` ( int ) optional: default to port 4200
 - `charset` ( string ) optional: defaul to `utf-8`
-- `router` ( object ) required: URL routes
+- `routes` ( string ) required: path to the file that registers the URL routes
 - `template_dir` ( string ) required: base path for templates
 
 If a required arg is not provided, exit with an error message and write the
@@ -20,6 +20,12 @@ same message to the error log.
 
 Routes are defined in the `url-routes.php` file.  Callbacks for URL routes
 are done via mapping to a single file.
+
+The App is given the *path* to the routes file via the `routes` arg, not a
+pre-built router object.  The App loads that file inside each worker process
+( see Reload ) and provides a `$router` in scope for it to register routes on.
+So the routes file uses `$router` directly and is never required by the
+developer's server file.
 
 The URL routing code supports all of the possible HTTP methods:
 
@@ -100,3 +106,46 @@ The minimum number of workers is 2.
 Only bind to the 127.0.0.1 interface.  In production it is expected that
 taalkic will run behind a traditional web server like Nginx, which would also
 take care of TLS termination.
+
+## Reload
+
+For production, `make reload` ( `php server.php reload -g` ) gracefully picks
+up code changes without dropping requests.  Workerman finishes any in-flight
+requests, then re-forks each worker one at a time.
+
+Because the workers are recycled one at a time, there is a brief window where
+old and new workers run side by side, so a just-added route can still return
+404 from a worker that has not been recycled yet.  Workerman's reload command
+returns before that finishes, so `make reload` waits until every old worker
+has exited before it returns.  Once it returns, all workers are running the
+new code.
+
+A graceful reload waits for every connection on a worker to close before that
+worker exits, and Workerman does not close idle ones itself.  An idle
+keep-alive connection ( a browser, or Nginx's upstream pool ) would otherwise
+pin the worker open until the keep-alive timeout ( around 90 seconds ) and,
+because workers are recycled one at a time, stall the whole reload.  The App
+closes idle connections itself when a worker stops ( via `onWorkerStop` ), so a
+reload is not held up.  Connections that are part way through a request are
+left to finish, and any buffered response is flushed before its connection is
+closed, so no request is dropped.
+
+The reload signal only re-forks the worker processes; the master process is
+never re-executed.  Workers are re-forked from the master's memory, so
+anything built in the master before the server starts would be frozen for the
+life of the master and never reloaded.
+
+To make a reload pick up changes correctly, the App loads the routes file
+inside each worker ( in Workerman's `onWorkerStart` ), not in the master.
+That covers all three kinds of change:
+
+- the URL routes file is re-loaded when the worker re-forks
+- the route callback files are included per request in the fresh worker
+- the template files are included per request in the fresh worker
+
+Leave the OPcache CLI ( `opcache.enable_cli` ) turned off, which is the
+default.  The route callback and template files are `include`d per request, so
+with CLI OPcache off PHP always reads the current file from disk.  If CLI
+OPcache were enabled with `opcache.validate_timestamps=0`, those includes
+would be served from a frozen opcode cache and a reload would not pick up the
+changes.

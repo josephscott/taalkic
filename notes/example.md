@@ -10,13 +10,10 @@ declare( strict_types = 1 );
 
 require __DIR__ . '/vendor/autoload.php';
 
-$router = new Taalkic\Router();
-require __DIR__ . '/url-routes.php';
-
 $app = new Taalkic\App( [
 	'workers' => 'half',
 	'port' => 4200,
-	'router' => $router,
+	'routes' => __DIR__ . '/url-routes.php',
 	'charset' => 'utf-8',
 	'template_dir' => __DIR__ . '/templates/',
 ] );
@@ -24,9 +21,14 @@ $app->run();
 ```
 
 ## demo/url-routes.php
+
+The App loads this file and provides `$router` in scope; it is not required
+by server.php directly.
+
 ```php
 <?php
 declare( strict_types = 1 );
+/** @var Taalkic\Router $router */
 
 $router->get( '/', __DIR__ . '/routes/index.php' );
 $router->get( '/go', __DIR__ . '/routes/go.php' );

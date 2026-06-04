@@ -49,6 +49,25 @@ restart: ## Restart the background service
 	php demo/server.php restart -d
 	@echo
 
+.PHONY: reload
+reload: ## Gracefully reload code without dropping requests ( production )
+	@echo
+	@echo "--> Server: reload ( graceful )"
+	@# Workerman recycles the workers one at a time and the reload command
+	@# returns before that finishes, so wait until every old worker is gone.
+	@# Until then some requests still hit old workers running the old code.
+	@master=$$( cat demo/workerman.server.php.pid 2>/dev/null ); \
+	old=$$( pgrep -P "$$master" 2>/dev/null ); \
+	php demo/server.php reload -g; \
+	for pid in $$old; do \
+		tries=0; \
+		while kill -0 "$$pid" 2>/dev/null && [ $$tries -lt 100 ]; do \
+			sleep 0.1; \
+			tries=$$(( tries + 1 )); \
+		done; \
+	done
+	@echo
+
 .PHONY: status
 status: ## Show the server status
 	@echo

@@ -3,7 +3,6 @@ declare( strict_types = 1 );
 
 use Laminas\Escaper\Escaper;
 use Taalkic\App;
-use Taalkic\Router;
 
 test( 'escaper() returns a Laminas escaper', function() {
 	expect( App::escaper() )->toBeInstanceOf( Escaper::class );
@@ -15,7 +14,7 @@ test( 'escaper() returns the same shared instance each time', function() {
 
 test( 'the constructor applies template_dir from config', function() {
 	new App( [
-		'router' => new Router(),
+		'routes' => '/var/url-routes.php',
 		'template_dir' => '/var/templates/',
 	] );
 
@@ -26,7 +25,7 @@ test( 'the constructor applies charset from config', function() {
 	App::$charset = 'sentinel';
 
 	new App( [
-		'router' => new Router(),
+		'routes' => '/var/url-routes.php',
 		'template_dir' => '/var/templates/',
 		'charset' => 'iso-8859-1',
 	] );
