@@ -35,6 +35,12 @@ start: ## Start the server as a background service ( production, no watching )
 	php demo/server.php start -d
 	@echo
 
+.PHONY: dev
+dev: ## Run in the foreground and reload automatically on file changes
+	@echo
+	@echo "--> Server: dev ( foreground, watching for changes )"
+	TAALKIC_DEV=1 php demo/server.php start
+
 .PHONY: stop
 stop: ## Stop the background service
 	@echo

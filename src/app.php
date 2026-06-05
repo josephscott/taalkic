@@ -8,6 +8,7 @@ use Laminas\Escaper\Escaper;
 use Workerman\Connection\TcpConnection;
 use Workerman\Protocols\Http\Request;
 use Workerman\Protocols\Http\Response;
+use Workerman\Timer;
 use Workerman\Worker;
 
 class App {
@@ -43,6 +44,11 @@ class App {
 	// worker ( see run() ) so a reload picks up changes to it.
 	private string $routes_path = '';
 
+	// Paths to watch in development. When set, a monitor process reloads the
+	// workers on any change ( see start_watching() ). Empty in production.
+	/** @var array<int, string> */
+	private array $watch = [];
+
 	/**
 	 * @param array<string, mixed> $config
 	 */
@@ -66,6 +72,10 @@ class App {
 
 		if ( isset( $config['charset'] ) ) {
 			self::$charset = $config['charset'];
+		}
+
+		if ( isset( $config['watch'] ) ) {
+			$this->watch = $config['watch'];
 		}
 
 		// routes and template_dir are required, so they are always present here.
@@ -109,7 +119,72 @@ class App {
 			}
 		};
 
+		if ( $this->watch !== [] ) {
+			$this->start_watching();
+		}
+
 		Worker::runAll();
+	}
+
+	// Run a monitor process that watches the configured paths and reloads the
+	// workers whenever a file changes, for `make dev`. It is a separate worker
+	// with no socket, marked not reloadable so the reload it triggers does not
+	// also restart it. Route callbacks and templates are included per request,
+	// so they already pick up edits on their own; the reload is what makes a
+	// changed routes file ( and the framework's own classes ) take effect.
+	private function start_watching(): void {
+		$monitor = new Worker();
+		$monitor->name = 'taalkic-watch';
+		$monitor->reloadable = false;
+
+		$paths = $this->watch;
+		$monitor->onWorkerStart = function() use ( $paths ): void {
+			$signature = $this->watch_signature( $paths );
+
+			Timer::add( 1, function() use ( $paths, &$signature ): void {
+				$current = $this->watch_signature( $paths );
+				if ( $current !== $signature ) {
+					$signature = $current;
+					// Ask the master ( this process's parent ) to reload.
+					posix_kill( posix_getppid(), SIGUSR1 );
+				}
+			} );
+		};
+	}
+
+	// A snapshot of the watched PHP files as a map of path to modified time.
+	// Comparing two snapshots detects added, removed, and changed files.
+	/**
+	 * @param array<int, string> $paths
+	 * @return array<string, int>
+	 */
+	private function watch_signature( array $paths ): array {
+		// The monitor is long-lived, so clear PHP's stat cache each scan or
+		// filemtime() would keep returning the value from the first scan.
+		clearstatcache();
+
+		$signature = [];
+		foreach ( $paths as $path ) {
+			if ( is_file( $path ) ) {
+				$signature[$path] = (int) filemtime( $path );
+				continue;
+			}
+
+			if ( ! is_dir( $path ) ) {
+				continue;
+			}
+
+			$files = new \RecursiveIteratorIterator(
+				new \RecursiveDirectoryIterator( $path, \FilesystemIterator::SKIP_DOTS )
+			);
+			foreach ( $files as $file ) {
+				if ( $file->isFile() && $file->getExtension() === 'php' ) {
+					$signature[$file->getPathname()] = (int) $file->getMTime();
+				}
+			}
+		}
+
+		return $signature;
 	}
 
 	// Build a fresh router by loading the routes file in an isolated scope

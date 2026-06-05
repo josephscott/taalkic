@@ -12,6 +12,7 @@ When creating a new Taalkic\App the constructor supports the following args:
 - `charset` ( string ) optional: defaul to `utf-8`
 - `routes` ( string ) required: path to the file that registers the URL routes
 - `template_dir` ( string ) required: base path for templates
+- `watch` ( array ) optional: paths to watch for changes in development ( see Dev mode )
 
 If a required arg is not provided, exit with an error message and write the
 same message to the error log.
@@ -124,6 +125,31 @@ The minimum number of workers is 2.
 Only bind to the 127.0.0.1 interface.  In production it is expected that
 taalkic will run behind a traditional web server like Nginx, which would also
 take care of TLS termination.
+
+## Dev mode
+
+For local development, `make dev` runs the server in the foreground and
+reloads automatically on file changes, so there is no need to run `make reload`
+or `make restart` by hand.
+
+It works by passing a `watch` array of paths to the App constructor.  When that
+is set, the App starts an extra monitor process ( a Workerman worker with no
+socket, marked not reloadable so the reload it triggers does not restart it )
+that scans those paths for changed PHP files once a second and, on any change,
+reloads the workers by signalling the master.
+
+The demo's `server.php` only sets `watch` when the `TAALKIC_DEV` environment
+variable is `1`, which `make dev` sets.  `make start` leaves it off so
+production does not scan files.
+
+What a change picks up matches Reload below:
+
+- route callback and template files are already live on the next request,
+  because they are included per request, so the watcher's reload is not even
+  needed for them
+- the routes file and the per-worker classes are picked up by the reload
+- `src/app.php`, the helper functions, and `server.php` load in the master, so
+  a reload does not pick them up; editing those still needs a `make restart`
 
 ## Reload
 
