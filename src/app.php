@@ -156,12 +156,11 @@ class App {
 	private function handle( Dispatcher $dispatcher, Router $router, Request $request ): Response {
 		$method = $request->method();
 		$path = $request->path();
-		$route_info = $dispatcher->dispatch( $method, $path );
 
-		// A HEAD request with no explicit HEAD route falls back to the GET route.
-		if ( $method === 'HEAD' && $route_info[0] !== Dispatcher::FOUND ) {
-			$route_info = $dispatcher->dispatch( 'GET', $path );
-		}
+		// FastRoute already falls a HEAD request back to the GET route when no
+		// HEAD route is declared, so no failover is needed here. It does not
+		// strip the body, though, so that is handled below.
+		$route_info = $dispatcher->dispatch( $method, $path );
 
 		$response = $this->route_response( $route_info, $router, $request );
 

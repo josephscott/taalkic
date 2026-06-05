@@ -39,9 +39,11 @@ The URL routing code supports all of the possible HTTP methods:
 
 ## HEAD requests
 
-HTTP HEAD requests should fall back to the GET route for that URL.  When that
-happens strip the body from the response to match the HTTP spec for
-responding to HEAD requests.
+HTTP HEAD requests should fall back to the GET route for that URL.  FastRoute
+already does this fallback when no HEAD route is declared, so taalkic relies on
+it rather than repeating the logic.  FastRoute does not touch the body, so
+taalkic strips the body from the response to match the HTTP spec for responding
+to HEAD requests.
 
 ## Missing callback files
 
