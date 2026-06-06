@@ -28,18 +28,39 @@ classmap: ## Update composer classmap
 
 ##@ Server
 
+# Workerman runs as a long-lived CLI process, but the CLI OPcache is off by
+# default, so PHP would re-lex and re-compile every per-request include() from
+# disk on every request. Turning it on caches the compiled opcodes and is the
+# single biggest throughput win. Tracing JIT then compiles the hot path to
+# native code once per worker.
+#
+# Production freezes the cache ( validate_timestamps=0 ) so there is no
+# per-request stat, the fastest setting. It does not watch for changes; that is
+# what `make reload` is for, and the App makes a reload work with a frozen cache
+# by calling opcache_invalidate() on the routes file, callbacks, and templates
+# on every worker start ( see run() ). Changes to taalkic's own src/ files need
+# `make restart`, which re-execs the master with a fresh cache. ( opcache_reset()
+# is deliberately not used: inside a long-lived worker it disables caching for
+# that worker's life, dropping back to no-OPcache speed. )
+#
+# Dev validates timestamps every request ( freq=0, the stat is negligible ) so
+# an edited route or template shows up on the very next request with no reload
+# at all, and JIT is off so an edit is not followed by a re-trace pause.
+OPCACHE_PROD = -d opcache.enable_cli=1 -d opcache.validate_timestamps=0 -d opcache.jit=tracing -d opcache.jit_buffer_size=128M
+OPCACHE_DEV  = -d opcache.enable_cli=1 -d opcache.validate_timestamps=1 -d opcache.revalidate_freq=0 -d opcache.jit=disable
+
 .PHONY: start
 start: ## Start the server as a background service ( production, no watching )
 	@echo
 	@echo "--> Server: start ( daemon )"
-	php demo/server.php start -d
+	php $(OPCACHE_PROD) demo/server.php start -d
 	@echo
 
 .PHONY: dev
 dev: ## Run in the foreground and reload automatically on file changes
 	@echo
 	@echo "--> Server: dev ( foreground, watching for changes )"
-	TAALKIC_DEV=1 php demo/server.php start
+	TAALKIC_DEV=1 php $(OPCACHE_DEV) demo/server.php start
 
 .PHONY: stop
 stop: ## Stop the background service
@@ -52,7 +73,7 @@ stop: ## Stop the background service
 restart: ## Restart the background service
 	@echo
 	@echo "--> Server: restart ( daemon )"
-	php demo/server.php restart -d
+	php $(OPCACHE_PROD) demo/server.php restart -d
 	@echo
 
 .PHONY: reload

@@ -187,9 +187,44 @@ That covers all three kinds of change:
 - the route callback files are included per request in the fresh worker
 - the template files are included per request in the fresh worker
 
-Leave the OPcache CLI ( `opcache.enable_cli` ) turned off, which is the
-default.  The route callback and template files are `include`d per request, so
-with CLI OPcache off PHP always reads the current file from disk.  If CLI
-OPcache were enabled with `opcache.validate_timestamps=0`, those includes
-would be served from a frozen opcode cache and a reload would not pick up the
+## OPcache and JIT
+
+Workerman runs as a long-lived CLI process, but the CLI OPcache is off by
+default.  With it off, PHP re-lexes, re-parses, and re-compiles every
+per-request `include()` ( the routes file, route callbacks, and templates )
+from disk on every request.  Turning the CLI OPcache on so those compiled
+opcodes are cached is the single biggest throughput win, and tracing JIT then
+compiles the hot path to native code once per worker.  The `make start`,
+`make dev`, and `make restart` targets enable both ( see the `OPCACHE_PROD`
+and `OPCACHE_DEV` variables in the Makefile ).
+
+Production and development use different settings, matching how each picks up
 changes.
+
+Production ( `make start` ) freezes the cache with
+`opcache.validate_timestamps=0`.  Nothing is re-checked per request, so there
+is no per-request `stat()` — the fastest setting.  Production does not watch
+for changes; `make reload` is what picks them up, and the App makes a reload
+work with a frozen cache: on every worker start ( which a reload re-runs ) it
+calls `opcache_invalidate( $file, true )` on the routes file, every route
+callback, the error handlers, and every template under `template_dir`, so each
+recompiles from disk on its next include.  taalkic's own `src/` files are left
+cached; changing those needs `make restart`, which re-execs the master with a
+fresh cache.  This matches the three kinds of update:
+
+- `make reload` picks up the routes file, route callbacks, and templates
+- `make restart` picks up `src/` ( and Workerman )
+
+`opcache_reset()` is deliberately not used to force the recompile.  Inside a
+long-lived worker it does not complete ( a reset only finishes when a fresh
+process attaches to the cache ), so it disables caching for the rest of that
+worker's life and silently drops throughput back to the no-OPcache level.
+`opcache_invalidate()` is targeted: it drops a single script and lets the next
+include recompile and re-cache it, leaving the rest of the cache warm.
+
+Development ( `make dev` ) instead uses `opcache.validate_timestamps=1` with
+`opcache.revalidate_freq=0`, so OPcache re-checks each included file's modified
+time and an edited route or template shows up on the very next request with no
+reload at all.  That costs one `stat()` per include ( a few percent on a
+trivial route ), which is the right trade while iterating.  JIT is off in dev
+so an edit is not followed by a re-trace pause.

@@ -66,6 +66,34 @@ class Router {
 		return $this->routes;
 	}
 
+	// A direct method => path => file map of the static routes only ( those
+	// with no {placeholder} or [optional] segment ). The App checks this before
+	// FastRoute so an exact match skips the dispatcher entirely; variable routes
+	// are left out and still go through FastRoute, which keeps their params.
+	/**
+	 * @return array<string, array<string, string>>
+	 */
+	public function static_map(): array {
+		$map = [];
+		foreach ( $this->routes as $route ) {
+			$is_static = true; // default
+			if ( str_contains( $route['path'], '{' ) ) {
+				$is_static = false;
+			}
+			if ( str_contains( $route['path'], '[' ) ) {
+				$is_static = false;
+			}
+
+			if ( ! $is_static ) {
+				continue;
+			}
+
+			$map[$route['method']][$route['path']] = $route['file'];
+		}
+
+		return $map;
+	}
+
 	// Build the FastRoute dispatcher from the declared routes. Routes are
 	// registered exactly as declared; HEAD fallback is handled by the App.
 	public function dispatcher(): \FastRoute\Dispatcher {

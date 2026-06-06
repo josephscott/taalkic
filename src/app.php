@@ -34,6 +34,13 @@ class App {
 	// $router and not the routes path ( see load_router() ).
 	private static string $routes_file = '';
 
+	// Memoized is_file() results for callback files, keyed by path. The route
+	// hot path runs once per request, so caching this avoids a filesystem stat
+	// on every request ( see file_exists() ). It lives for the life of the
+	// worker; a reload re-forks the worker and starts with a fresh cache.
+	/** @var array<string, bool> */
+	private static array $file_exists = [];
+
 	// The resolved worker count, computed from the 'workers' config in the
 	// constructor ( see worker_count() ).
 	private int $workers = 2;
@@ -95,11 +102,25 @@ class App {
 		// is never re-executed, so anything built before runAll() would be
 		// frozen for the life of the server.
 		$worker->onWorkerStart = function( Worker $worker ): void {
+			// A reload re-forks the worker and re-runs this. When the opcode
+			// cache is frozen ( the production setting, see the Makefile ), the
+			// routes file would otherwise be served from the cache, so force it
+			// to recompile from disk before it is loaded. The callbacks and
+			// templates are handled below, once the router lists them.
+			$this->fresh_compile( [ $this->routes_path ] );
+
 			$router = $this->load_router();
 			$dispatcher = $router->dispatcher();
+			$static_map = $router->static_map();
 
-			$worker->onMessage = function( TcpConnection $connection, Request $request ) use ( $router, $dispatcher ): void {
-				$connection->send( $this->handle( $dispatcher, $router, $request ) );
+			// The route callbacks and templates are included per request, so
+			// force them to recompile too, so a reload picks up their changes.
+			// taalkic's own src/ files are left cached; changing those needs a
+			// full restart, which re-execs the master with a fresh cache.
+			$this->fresh_compile( $this->app_files( $router ) );
+
+			$worker->onMessage = function( TcpConnection $connection, Request $request ) use ( $router, $dispatcher, $static_map ): void {
+				$connection->send( $this->handle( $dispatcher, $static_map, $router, $request ) );
 			};
 		};
 
@@ -205,6 +226,64 @@ class App {
 		return $router;
 	}
 
+	// Force the given files to recompile from disk on their next include, so a
+	// reload picks up their changes even when the opcode cache is frozen
+	// ( opcache.validate_timestamps off, the fastest production setting ). It is
+	// a no-op when timestamps are validated ( dev, where OPcache revalidates on
+	// its own ) or when OPcache is not loaded.
+	/**
+	 * @param array<int, string> $files
+	 */
+	private function fresh_compile( array $files ): void {
+		if ( ! function_exists( 'opcache_invalidate' ) ) {
+			return;
+		}
+
+		// ini_get returns a falsy string ( '' or '0' ) when the directive is
+		// off, so this returns early whenever timestamps are validated.
+		if ( ini_get( 'opcache.validate_timestamps' ) ) {
+			return;
+		}
+
+		foreach ( $files as $file ) {
+			opcache_invalidate( $file, true );
+		}
+	}
+
+	// The application files a reload should pick up: every route callback, the
+	// error handlers, and every template under template_dir. The routes file is
+	// handled separately ( it has to be fresh before it is loaded ).
+	/**
+	 * @return array<int, string>
+	 */
+	private function app_files( Router $router ): array {
+		$files = [];
+
+		foreach ( $router->routes() as $route ) {
+			$files[] = $route['file'];
+		}
+
+		$handlers = [ $router->handler_404(), $router->handler_405() ];
+		foreach ( $handlers as $handler ) {
+			if ( $handler !== '' ) {
+				$files[] = $handler;
+			}
+		}
+
+		if ( is_dir( self::$template_dir ) ) {
+			$templates = new \RecursiveIteratorIterator(
+				new \RecursiveDirectoryIterator( self::$template_dir, \FilesystemIterator::SKIP_DOTS )
+			);
+			foreach ( $templates as $template ) {
+				if ( $template->isFile() && $template->getExtension() === 'php' ) {
+					$files[] = $template->getPathname();
+				}
+			}
+		}
+
+		return $files;
+	}
+
 	// Log any declared route or error-handler file that does not exist. This
 	// runs when the routes are loaded ( on worker start, so also on reload ),
 	// surfacing a typo right away instead of only on the first matching
@@ -228,16 +307,37 @@ class App {
 	}
 
 	// Turn a single request into a response.
-	private function handle( Dispatcher $dispatcher, Router $router, Request $request ): Response {
+	/**
+	 * @param array<string, array<string, string>> $static_map
+	 */
+	private function handle( Dispatcher $dispatcher, array $static_map, Router $router, Request $request ): Response {
 		$method = $request->method();
 		$path = $request->path();
+
+		// Fast path: an exact static-route match skips FastRoute entirely. A
+		// HEAD request with no HEAD route falls back to the GET route, which is
+		// what FastRoute does. Variable routes, 404, and 405 are not in the map
+		// and fall through to the dispatcher below.
+		$file = ''; // default
+		if ( isset( $static_map[$method][$path] ) ) {
+			$file = $static_map[$method][$path];
+		}
+		if ( $file === '' && $method === 'HEAD' && isset( $static_map['GET'][$path] ) ) {
+			$file = $static_map['GET'][$path];
+		}
+
+		$response = null; // default
+		if ( $file !== '' ) {
+			$response = $this->run_route( $file, [], $request );
+		}
 
 		// FastRoute already falls a HEAD request back to the GET route when no
 		// HEAD route is declared, so no failover is needed here. It does not
 		// strip the body, though, so that is handled below.
-		$route_info = $dispatcher->dispatch( $method, $path );
-
-		$response = $this->route_response( $route_info, $router, $request );
+		if ( $response === null ) {
+			$route_info = $dispatcher->dispatch( $method, $path );
+			$response = $this->route_response( $route_info, $router, $request );
+		}
 
 		// A HEAD response carries no body, per the HTTP spec.
 		if ( $method === 'HEAD' ) {
@@ -266,6 +366,18 @@ class App {
 		return $this->run_route( $file, $params, $request );
 	}
 
+	// Cached is_file() for the request hot path. The first check for a path
+	// stats the disk; later checks reuse the result for the life of the worker,
+	// so a matched route does not stat the disk on every request. A reload
+	// re-forks the worker, which starts with an empty cache and stats afresh.
+	private static function file_exists( string $file ): bool {
+		if ( ! isset( self::$file_exists[$file] ) ) {
+			self::$file_exists[$file] = is_file( $file );
+		}
+
+		return self::$file_exists[$file];
+	}
+
 	// Run a route file in an isolated scope where only $here is available, and
 	// use its captured output as the response body. The route can also mutate
 	// the response via $here->response. The path is held on a static property
@@ -278,7 +390,7 @@ class App {
 		// A route can be declared for a callback file that does not exist. That
 		// is a server-side misconfiguration, so return a 500 rather than the
 		// blank 200 an empty include() would otherwise produce.
-		if ( ! is_file( $file ) ) {
+		if ( ! self::file_exists( $file ) ) {
 			error_log( "Taalkic\\App: route callback file not found: {$file}" );
 			return $this->plain_error( 500 );
 		}
@@ -307,7 +419,7 @@ class App {
 		// Fall back to the plain error page when no handler is declared, or when
 		// one is declared but its file is missing, so a missing handler still
 		// returns its own status ( e.g. 404 ) rather than a 500.
-		if ( ! is_file( $handler_file ) ) {
+		if ( ! self::file_exists( $handler_file ) ) {
 			return $this->plain_error( $status );
 		}
 
