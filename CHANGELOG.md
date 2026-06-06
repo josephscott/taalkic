@@ -11,3 +11,4 @@
 - `make dev` runs the server in the foreground and reloads automatically on file changes, via a new `watch` App config option
 - Catch a throwing route and return a 500 instead of letting the exception stop the worker, and always close the route's output buffer so partial output cannot bleed into a later request
 - Include the routes file, route callbacks, and templates from free functions instead of inside App, so they run with no class scope and cannot reach App's private statics through self::
+- Confine template() to template_dir via realpath, rejecting path traversal and stream wrappers so a template path built from request data cannot include files outside the base

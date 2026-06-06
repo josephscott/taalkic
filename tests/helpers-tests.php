@@ -75,3 +75,62 @@ test( 'a template cannot reach App class scope via self::', function() {
 
 	expect( $threw )->toBeTrue();
 } );
+
+test( 'template renders a file inside a template_dir subdirectory', function() {
+	$base = sys_get_temp_dir() . '/taalkic-tpl-base-' . uniqid();
+	mkdir( $base );
+	mkdir( "{$base}/partials" );
+	file_put_contents( "{$base}/partials/ok.php", '<?php echo "ok";' );
+	App::$template_dir = "{$base}/";
+
+	ob_start();
+	template( 'partials/ok.php', [] );
+	$output = (string) ob_get_clean();
+
+	unlink( "{$base}/partials/ok.php" );
+	rmdir( "{$base}/partials" );
+	rmdir( $base );
+
+	expect( $output )->toBe( 'ok' );
+} );
+
+test( 'template rejects a path that escapes template_dir', function() {
+	$base = sys_get_temp_dir() . '/taalkic-tpl-base-' . uniqid();
+	mkdir( $base );
+	$secret = sys_get_temp_dir() . '/taalkic-secret-' . uniqid() . '.php';
+	file_put_contents( $secret, '<?php echo "SECRET";' );
+	App::$template_dir = "{$base}/";
+
+	// A developer who passes request data into template() could otherwise reach
+	// a file outside template_dir; the realpath confinement refuses it.
+	$threw = false;
+	ob_start();
+	try {
+		template( '../' . basename( $secret ), [] );
+	} catch ( \Throwable $e ) {
+		$threw = true;
+	} finally {
+		$output = (string) ob_get_clean();
+		unlink( $secret );
+		rmdir( $base );
+	}
+
+	expect( $threw )->toBeTrue();
+	expect( $output )->not->toContain( 'SECRET' );
+} );
+
+test( 'template rejects a stream wrapper path', function() {
+	App::$template_dir = sys_get_temp_dir() . '/';
+
+	$threw = false;
+	ob_start();
+	try {
+		template( 'php://temp', [] );
+	} catch ( \Throwable $e ) {
+		$threw = true;
+	} finally {
+		ob_end_clean();
+	}
+
+	expect( $threw )->toBeTrue();
+} );

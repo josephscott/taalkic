@@ -485,7 +485,31 @@ class App {
 	 * @param array<string, mixed> $data
 	 */
 	public static function render_template( string $file_path, array $data ): void {
-		Scope::$template_file = self::$template_dir . $file_path;
+		// Confine the template to template_dir. The file_path is meant to be a
+		// developer-controlled name relative to the base, but a developer can
+		// easily pass request data ( e.g. template( $here->params['page'] . '.php' ) ),
+		// which without this would allow path traversal ( ../../etc/passwd ) and
+		// stream wrappers ( php://, phar://, data:// ) straight into include().
+		//
+		// realpath() resolves .. and symlinks and returns false for a path that
+		// does not exist or for a stream wrapper, so a traversal or wrapper is
+		// rejected here; the trailing separator on the base stops a sibling like
+		// "<base>-evil" from passing the prefix check. The resolved, canonical
+		// path is what gets included ( never the raw concatenation ). A rejected
+		// template is a server-side problem, so it returns a 500 the same way a
+		// missing route callback does.
+		$real = realpath( self::$template_dir . $file_path );
+		$base = realpath( self::$template_dir );
+		if (
+			$real === false
+			|| $base === false
+			|| ! str_starts_with( $real, $base . DIRECTORY_SEPARATOR )
+		) {
+			error_log( "Taalkic\\App: template path rejected ( outside template_dir or missing ): {$file_path}" );
+			throw new \RuntimeException( 'Taalkic\\App: template path rejected' );
+		}
+
+		Scope::$template_file = $real;
 		include_template( $data );
 	}
 

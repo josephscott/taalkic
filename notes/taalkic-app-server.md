@@ -92,6 +92,13 @@ The `template()` helper calls a template PHP file, which will also do
 direct output, like route callbacks do.  The `file_path` is always relative
 to the Taalkic\App::template_dir base path.
 
+The resolved path is confined to `template_dir` ( via `realpath()` ): a path
+that escapes the base ( `../` traversal ), a stream wrapper ( `php://`,
+`phar://`, `data://` ), or a file that does not exist is rejected and the
+request returns a 500.  This keeps `template()` safe even if a developer builds
+the path from request data ( e.g. `template( $here->params['page'] . '.php' )` ),
+which would otherwise be a local/remote file inclusion.
+
 ## Route Callbacks
 
 The file for the route callback needs to be isolated from the rest of the
