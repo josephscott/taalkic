@@ -26,7 +26,8 @@
 			"src/"
 		],
 		"files": [
-			"src/helpers.php"
+			"src/helpers.php",
+			"src/scope.php"
 		]
 	},
 	"autoload-dev": {

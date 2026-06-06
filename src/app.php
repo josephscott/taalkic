@@ -22,17 +22,10 @@ class App {
 	// esc_* helper functions via App::escaper().
 	private static ?Escaper $escaper = null;
 
-	// Set just before a template is included, so the included file's scope
-	// holds only $data and not the template path ( see render_template() ).
-	private static string $template_file = '';
-
-	// Set just before a route file is run, so the route's scope holds only
-	// $here and not the route path ( see run_route() ).
-	private static string $route_file = '';
-
-	// Set just before the routes file is loaded, so its scope holds only
-	// $router and not the routes path ( see load_router() ).
-	private static string $routes_file = '';
+	// The paths for the routes file, route callbacks, and templates are held on
+	// the Scope holder ( see scope.php ), which is where they are included, so the
+	// included files run with no App class scope and cannot reach the statics
+	// here. They are not kept on App.
 
 	// Memoized is_file() results for callback files, keyed by path. The route
 	// hot path runs once per request, so caching this avoids a filesystem stat
@@ -120,7 +113,24 @@ class App {
 			$this->fresh_compile( $this->app_files( $router ) );
 
 			$worker->onMessage = function( TcpConnection $connection, Request $request ) use ( $router, $dispatcher, $static_map ): void {
-				$connection->send( $this->handle( $dispatcher, $static_map, $router, $request ) );
+				// A route can throw. Workerman has no error handler set here, so an
+				// exception out of onMessage reaches TcpConnection::error(), which
+				// calls Worker::stopAll() and takes the whole worker down — a remote
+				// DoS where one bad request kills every in-flight request on the
+				// worker. Catch it, log it, and return a 500 instead so the worker
+				// keeps serving.
+				try {
+					$response = $this->handle( $dispatcher, $static_map, $router, $request );
+				} catch ( \Throwable $e ) {
+					error_log(
+						'Taalkic\\App: uncaught ' . $e::class . ' handling '
+						. $request->method() . ' ' . $request->path() . ': '
+						. $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine()
+					);
+					$response = $this->plain_error( 500 );
+				}
+
+				$connection->send( $response );
 			};
 		};
 
@@ -208,18 +218,15 @@ class App {
 		return $signature;
 	}
 
-	// Build a fresh router by loading the routes file in an isolated scope
-	// where only $router is available. The path is held on a static property
-	// so it is not a local variable, and therefore not in scope, when the
-	// routes file is included.
+	// Build a fresh router by loading the routes file in an isolated scope where
+	// only $router is available. The include happens in a free function ( see
+	// scope.php ), so the routes file gets neither the path as a local nor any
+	// access to App's internals through self::.
 	private function load_router(): Router {
 		$router = new Router();
 
-		self::$routes_file = $this->routes_path;
-		$load = static function( Router $router ): void {
-			include self::$routes_file;
-		};
-		$load( $router );
+		Scope::$routes_file = $this->routes_path;
+		include_routes( $router );
 
 		$this->warn_missing_files( $router );
 
@@ -380,9 +387,9 @@ class App {
 
 	// Run a route file in an isolated scope where only $here is available, and
 	// use its captured output as the response body. The route can also mutate
-	// the response via $here->response. The path is held on a static property
-	// so it is not a local variable, and therefore not in scope, when the route
-	// file is included.
+	// the response via $here->response. The include happens in a free function
+	// ( see scope.php ), so the route file gets neither the path as a local nor
+	// any access to App's internals through self::.
 	/**
 	 * @param array<string, string> $params
 	 */
@@ -399,14 +406,19 @@ class App {
 		$response = new Response( 200 );
 		$here = new Here( $request, $response, $params );
 
-		self::$route_file = $file;
-		$run = static function( Here $here ): void {
-			include self::$route_file;
-		};
+		Scope::$route_file = $file;
 
+		// Capture the route's output. If the route throws, the finally still
+		// closes the buffer this opened, so a thrown route does not leak an open
+		// output buffer ( which, in a long-lived worker, would let one request's
+		// partial output bleed into a later request ). The exception then
+		// propagates to onMessage, which turns it into a 500.
 		ob_start();
-		$run( $here );
-		$body = (string) ob_get_clean();
+		try {
+			include_route( $here );
+		} finally {
+			$body = (string) ob_get_clean();
+		}
 
 		$response->withBody( $body );
 
@@ -465,19 +477,16 @@ class App {
 		return self::$escaper;
 	}
 
-	// Render a template in an isolated scope where only $data is available.
-	// The path is held on a static property so it is not a local variable,
-	// and therefore not in scope, when the template is included.
+	// Render a template in an isolated scope where only $data is available. The
+	// include happens in a free function ( see scope.php ), so the template gets
+	// neither the path as a local nor any access to App's internals through
+	// self::.
 	/**
 	 * @param array<string, mixed> $data
 	 */
 	public static function render_template( string $file_path, array $data ): void {
-		self::$template_file = self::$template_dir . $file_path;
-
-		$render = static function( array $data ): void {
-			include self::$template_file;
-		};
-		$render( $data );
+		Scope::$template_file = self::$template_dir . $file_path;
+		include_template( $data );
 	}
 
 	// Resolve the configured 'workers' value into an actual worker count.
